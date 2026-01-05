@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eldoraigne PWA - Master Prototype</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Icons (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- TAILWIND CONFIGURATION -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            blue: "#0B3173",
+                            gold: "#D4AF37", 
+                            red: "#EF4444",
+                            orange: "#EA580C",
+                            green: "#10B981",
+                        },
+                    },
+                    boxShadow: {
+                        'premium': '0 10px 30px -5px rgba(11, 49, 115, 0.15), 0 4px 10px -2px rgba(11, 49, 115, 0.05)',
+                        'glow': '0 0 15px rgba(212, 175, 55, 0.3)',
+                    },
+                    backgroundImage: {
+                        'blue-gradient': 'linear-gradient(135deg, #0B3173 0%, #062356 100%)',
+                        'gold-gradient': 'linear-gradient(135deg, #D4AF37 0%, #F3E5AB 100%)',
+                    }
+                },
+            }
+        }
+    </script>
+
+    <style>
+        /* Glass Panel Utility */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        body { 
+            background-color: #f1f5f9;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* Calendar Grid Lines */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: #e2e8f0;
+            border: 1px solid #e2e8f0;
+        }
+        .calendar-day {
+            background-color: white;
+            min-height: 120px;
+        }
+
+        /* Page Toggle Logic */
+        .page-section { display: none; }
+        .page-section.active { display: flex; flex-direction: column; height: 100%; }
+        
+        /* Master-Detail View Logic */
+        .view-container { display: none; }
+        .view-container.active { display: block; }
+        
+        /* Roster Display Logic */
+        .roster-display-mode { display: none; }
+        .roster-display-mode.active { display: block; }
+
+        /* Loader Animation */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #D4AF37;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen overflow-hidden flex">
+
+    <!-- MOBILE OVERLAY -->
+    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-brand-blue/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300 opacity-0"></div>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="fixed lg:relative z-50 h-full w-72 bg-white flex flex-col shadow-premium transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+        
+        <!-- Brand Header -->
+        <div class="h-24 flex items-center px-6 bg-blue-gradient text-white relative overflow-hidden shrink-0">
+            <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+            <div class="flex items-center gap-3 relative z-10">
+                <div class="w-10 h-10 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20 shadow-lg">
+                    <i data-lucide="shield" class="w-6 h-6 text-brand-gold"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">Eldoraigne</h1>
+                    <p class="text-xs text-white/60 font-medium tracking-wider">COMMITTEE PORTAL</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex-1 px-4 py-6 space-y-6 overflow-y-auto custom-scroll">
+            
+            <!-- Section: Operations -->
+            <div>
+                <p class="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Operations</p>
+                
+                <button onclick="navigate('roster')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-roster">
+                    <i data-lucide="calendar" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">Club Roster</span>
+                </button>
+
+                <button onclick="navigate('maintenance')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-maintenance">
+                    <i data-lucide="wrench" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">Maintenance</span>
+                </button>
+
+                <!-- Moved Actions Here -->
+                <button onclick="navigate('actions')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-actions">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">Actions</span>
+                </button>
+            </div>
+
+            <!-- Section: Finance -->
+            <div>
+                <p class="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Finance</p>
+                <button onclick="navigate('receipts')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-receipts">
+                    <i data-lucide="receipt" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">Finance & Claims</span>
+                </button>
+            </div>
+
+            <!-- Section: Administration -->
+            <div>
+                <p class="px-4 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Administration</p>
+                
+                <button onclick="navigate('members')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-members">
+                    <i data-lucide="users" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">Members</span>
+                </button>
+
+                <button onclick="navigate('settings')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-brand-blue transition-all group" id="nav-settings">
+                    <i data-lucide="settings" class="w-5 h-5 text-slate-400 group-hover:text-brand-blue"></i>
+                    <span class="font-medium">System Config</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Profile Footer -->
+        <div class="p-4 border-t border-slate-100 bg-slate-50 shrink-0">
+            <button class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all text-left">
+                <div class="w-10 h-10 rounded-full bg-brand-gold/20 text-brand-gold flex items-center justify-center font-bold border border-brand-gold/30">JS</div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-brand-blue truncate">John Smith</p>
+                    <p class="text-xs text-slate-500 truncate">john@eldoraigne.co.za</p>
+                </div>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================================================================================== -->
+    <!-- MAIN CONTENT CONTAINER -->
+    <!-- ================================================================================== -->
+    <main class="flex-1 relative overflow-hidden h-full bg-[#f1f5f9]">
+
+        <!-- ================= PAGE 1: CLUB ROSTER ================= -->
+        <div id="page-roster" class="page-section active">
+            <!-- Header -->
+            <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">Club Roster</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50">
+                
+                <!-- Roster Menu -->
+                <div id="roster-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Schedules & Duty</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('roster', 'calendar')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue"><i data-lucide="calendar" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Club Calendar</h4><p class="text-xs text-slate-500 mt-0.5">View duties, matches, and events.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('roster', 'myshifts')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-gold/10 p-2.5 rounded-xl text-brand-gold"><i data-lucide="star" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">My Shifts</h4><p class="text-xs text-slate-500 mt-0.5">Quick access to your assigned duties.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Roster Calendar View -->
+                <div id="roster-detail-calendar" class="view-container p-6 lg:p-10 h-full">
+                    <div class="flex justify-between items-center mb-6">
+                        <button onclick="closeSubView('roster')" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                        <div class="flex gap-2">
+                            <div class="flex bg-slate-200 rounded-lg p-1">
+                                <button onclick="toggleRosterMode('calendar')" id="btn-mode-calendar" class="p-1.5 rounded-md bg-white text-brand-blue shadow-sm"><i data-lucide="calendar" class="w-4 h-4"></i></button>
+                                <button onclick="toggleRosterMode('list')" id="btn-mode-list" class="p-1.5 rounded-md text-slate-500 hover:text-slate-700"><i data-lucide="list" class="w-4 h-4"></i></button>
+                            </div>
+                            <button class="bg-brand-blue text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2"><i data-lucide="plus" class="w-3 h-3"></i> Add Event</button>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="flex gap-2 overflow-x-auto pb-4 mb-2">
+                        <button class="bg-brand-blue text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-md whitespace-nowrap">All Events</button>
+                        <button class="bg-white border border-slate-200 text-slate-600 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm whitespace-nowrap">Bar Duty</button>
+                        <button class="bg-white border border-slate-200 text-slate-600 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm whitespace-nowrap">League</button>
+                    </div>
+
+                    <!-- Calendar Mode -->
+                    <div id="roster-mode-calendar" class="roster-display-mode active bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Mon</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Tue</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Wed</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Thu</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Fri</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Sat</div>
+                            <div class="py-3 text-center text-xs font-bold text-slate-500 uppercase">Sun</div>
+                        </div>
+                        <div class="calendar-grid">
+                            <div class="calendar-day p-2 bg-slate-50/50"><span class="text-slate-300">28</span></div>
+                            <div class="calendar-day p-2 bg-slate-50/50"><span class="text-slate-300">29</span></div>
+                            <div class="calendar-day p-2 bg-slate-50/50"><span class="text-slate-300">30</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">1</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">2</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">3</span></div>
+                            <div class="calendar-day p-2 bg-slate-50/30"><span class="text-slate-500 text-sm">4</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">5</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">6</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">7</span><div class="mt-2 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold truncate">18:00 Sarah J. (Bar)</div></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">8</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">9</span><div class="mt-2 bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-semibold flex justify-between"><span>18:00 Mike T.</span><i data-lucide="refresh-cw" class="w-3 h-3"></i></div></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">10</span><div class="mt-2 bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-semibold truncate">09:00 Junior Club</div></div>
+                            <div class="calendar-day p-2 bg-slate-50/30"><span class="text-slate-500 text-sm">11</span><div class="mt-2 bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-semibold truncate">08:00 League Match</div></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">12</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">13</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">14</span></div>
+                            <div class="calendar-day p-2 relative bg-brand-gold/5"><span class="text-brand-blue font-bold text-sm">15</span><div onclick="openSwapModal()" class="mt-2 bg-brand-gold text-white px-2 py-1.5 rounded shadow-sm text-xs font-bold cursor-pointer hover:bg-yellow-600 transition-colors">★ Bar Duty (You)</div></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">16</span></div>
+                            <div class="calendar-day p-2"><span class="text-slate-500 text-sm">17</span></div>
+                            <div class="calendar-day p-2 bg-slate-50/30"><span class="text-slate-500 text-sm">18</span></div>
+                        </div>
+                    </div>
+
+                    <!-- List Mode -->
+                    <div id="roster-mode-list" class="roster-display-mode space-y-4">
+                        <div onclick="openSwapModal()" class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-brand-gold flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-4">
+                                <div class="bg-brand-gold/10 text-brand-gold p-3 rounded-xl font-bold text-center min-w-[60px]"><span class="text-lg">15</span><br><span class="text-xs uppercase">Oct</span></div>
+                                <div><div class="text-xs font-bold text-brand-gold uppercase mb-1">Your Shift</div><div class="font-bold text-slate-800">Bar Duty</div><div class="text-sm text-slate-500">18:00 - 22:00 • Clubhouse</div></div>
+                            </div>
+                            <i data-lucide="chevron-right" class="text-slate-300"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Shifts View (NEW) -->
+                <div id="roster-detail-myshifts" class="view-container p-6 lg:p-10 h-full">
+                    <button onclick="closeSubView('roster')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    
+                    <h3 class="font-bold text-xl text-slate-800 mb-6">My Assigned Duties</h3>
+                    
+                    <div class="space-y-4">
+                        <!-- Shift 1 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex gap-4">
+                                <div class="bg-brand-gold/10 text-brand-gold p-4 rounded-xl font-bold text-center min-w-[70px]">
+                                    <span class="text-2xl block">15</span><span class="text-xs uppercase tracking-wider">Oct</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-lg">Bar Duty</h4>
+                                    <p class="text-sm text-slate-500 flex items-center gap-2 mt-1"><i data-lucide="clock" class="w-4 h-4"></i> 18:00 - 22:00</p>
+                                    <p class="text-sm text-slate-500 flex items-center gap-2 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i> Main Clubhouse</p>
+                                </div>
+                            </div>
+                            <button onclick="openSwapModal()" class="border-2 border-brand-red/20 text-brand-red px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-brand-red/5 flex items-center justify-center gap-2 transition-colors">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Request Swap
+                            </button>
+                        </div>
+
+                        <!-- Shift 2 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex gap-4">
+                                <div class="bg-brand-gold/10 text-brand-gold p-4 rounded-xl font-bold text-center min-w-[70px]">
+                                    <span class="text-2xl block">29</span><span class="text-xs uppercase tracking-wider">Oct</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-lg">Gate Control</h4>
+                                    <p class="text-sm text-slate-500 flex items-center gap-2 mt-1"><i data-lucide="clock" class="w-4 h-4"></i> 07:00 - 11:00</p>
+                                    <p class="text-sm text-slate-500 flex items-center gap-2 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i> Main Gate</p>
+                                </div>
+                            </div>
+                            <button onclick="openSwapModal()" class="border-2 border-brand-red/20 text-brand-red px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-brand-red/5 flex items-center justify-center gap-2 transition-colors">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Request Swap
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 2: RECEIPTS & CLAIMS ================= -->
+        <div id="page-receipts" class="page-section">
+            <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">Finance</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50">
+                
+                <!-- Finance Menu -->
+                <div id="finance-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Transactions</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden mb-8">
+                        <button onclick="openSubView('finance', 'submit')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-blue-100 p-2.5 rounded-xl text-brand-blue"><i data-lucide="upload" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Submit Expense</h4><p class="text-xs text-slate-500 mt-0.5">Upload receipts and log spending.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('finance', 'claims')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-purple-100 p-2.5 rounded-xl text-purple-700"><i data-lucide="file-check" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Claims Management</h4><p class="text-xs text-slate-500 mt-0.5">Review and authorize reimbursements.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Income</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('finance', 'collections')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-green-100 p-2.5 rounded-xl text-brand-green"><i data-lucide="coins" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Collections</h4><p class="text-xs text-slate-500 mt-0.5">Track outstanding membership & tuckshop fees.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit View -->
+                <div id="finance-detail-submit" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('finance')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="max-w-3xl mx-auto">
+                        <form id="receiptForm" class="glass-panel p-6 sm:p-8 rounded-2xl shadow-premium relative overflow-hidden" onsubmit="handleMockSubmit(event)">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="space-y-6">
+                                    <div class="space-y-2"><label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Date</label><input type="date" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-brand-blue outline-none"></div>
+                                    <div class="space-y-2"><label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Merchant</label><input type="text" placeholder="e.g. Checkers" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-brand-blue outline-none"></div>
+                                    <div class="space-y-2"><label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</label><input type="number" step="0.01" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-brand-blue outline-none text-xl font-bold"></div>
+                                    <div class="space-y-2"><label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Description</label><textarea class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-brand-blue outline-none resize-none h-24"></textarea></div>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Receipt</label>
+                                    <div class="w-full h-full min-h-[200px] bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-center hover:bg-brand-gold/5 transition-colors relative"><input type="file" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer z-10"><i data-lucide="camera" class="w-8 h-8 text-brand-blue mb-2"></i><p class="font-bold text-slate-700">Upload</p></div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-6 border-t border-slate-100 flex justify-end gap-3"><button type="submit" class="bg-gold-gradient text-brand-blue px-8 py-2.5 rounded-xl font-bold shadow-md">Submit</button></div>
+                            <div id="loadingOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 hidden flex-col items-center justify-center"><div class="loader mb-4"></div><p class="font-bold text-brand-blue animate-pulse">Syncing...</p></div>
+                            <div id="successOverlay" class="absolute inset-0 bg-white z-20 hidden flex-col items-center justify-center"><div class="w-16 h-16 bg-brand-green rounded-full flex items-center justify-center mb-4"><i data-lucide="check" class="w-8 h-8 text-white"></i></div><h3 class="text-xl font-bold text-slate-800">Saved!</h3><button onclick="resetForm()" class="mt-6 text-brand-blue font-bold hover:underline">Add another</button></div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Claims View -->
+                <div id="finance-detail-claims" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('finance')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100"><h3 class="font-bold text-lg text-slate-800">Claims Management</h3></div>
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="p-4 text-xs font-bold text-slate-500 uppercase">Date</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Claimant</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Amount</th><th class="p-4 text-xs font-bold text-slate-500 uppercase text-right">Status</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr class="hover:bg-slate-50"><td class="p-4">01 Oct</td><td class="p-4 font-bold text-slate-800">John Smith</td><td class="p-4 font-bold text-brand-blue">R 450.00</td><td class="p-4 text-right"><button onclick="cycleClaimStatus(this)" class="status-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-brand-red/10 text-brand-red w-32 justify-center" data-status="pending"><span>Pending</span></button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Collections View -->
+                <div id="finance-detail-collections" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('finance')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100"><h3 class="font-bold text-lg text-slate-800">Outstanding Payments</h3></div>
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="p-4 text-xs font-bold text-slate-500 uppercase">Member</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Amount</th><th class="p-4 text-xs font-bold text-slate-500 uppercase text-right">Action</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr class="hover:bg-blue-50/30"><td class="p-4 font-bold text-slate-800">David Kramer</td><td class="p-4 font-bold text-slate-800">R 1,200.00</td><td class="p-4 text-right"><button onclick="sendReminder(this, 'David')" class="bg-white border border-slate-200 text-slate-600 hover:text-brand-blue px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 ml-auto"><i data-lucide="send" class="w-3 h-3"></i> Remind</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 3: MAINTENANCE ================= -->
+        <div id="page-maintenance" class="page-section">
+            <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">Maintenance Log</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50">
+                
+                <!-- Maintenance Menu -->
+                <div id="maintenance-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Job Cards</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('maintenance', 'list')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue"><i data-lucide="list" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Active Issues</h4><p class="text-xs text-slate-500 mt-0.5">View and update current maintenance tasks.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('maintenance', 'new')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-green/10 p-2.5 rounded-xl text-brand-green"><i data-lucide="plus-circle" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Log New Issue</h4><p class="text-xs text-slate-500 mt-0.5">Report a new fault or repair request.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Issues View -->
+                <div id="maintenance-detail-list" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('maintenance')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-xl p-5 shadow-sm border-l-4 border-brand-red flex flex-col md:flex-row gap-4 md:items-center justify-between">
+                        <div class="flex-1"><div class="flex items-center gap-2 mb-2"><span class="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Urgent</span><span class="text-xs text-slate-400">#M-102 • Logged 2 days ago</span></div><h3 class="text-lg font-bold text-slate-800">Clubhouse Roof Leak</h3></div>
+                        <div class="flex items-center gap-4"><div class="text-right"><p class="text-xs text-slate-400 font-bold uppercase">Status</p><p class="text-sm font-bold text-brand-blue">Quotes Received</p></div><button class="p-2 hover:bg-slate-100 rounded-lg"><i data-lucide="chevron-right" class="w-5 h-5 text-slate-400"></i></button></div>
+                    </div>
+                </div>
+
+                <!-- Log New Issue View (NEW) -->
+                <div id="maintenance-detail-new" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('maintenance')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                        <h3 class="text-xl font-bold text-slate-800 mb-6">Log New Maintenance Issue</h3>
+                        <div class="space-y-6">
+                            <div><label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Issue Category</label><select class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-brand-blue outline-none"><option>Plumbing</option><option>Electrical</option><option>Structural</option><option>Grounds</option></select></div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Location</label><input type="text" placeholder="e.g. Bar Bathroom" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-brand-blue outline-none"></div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Urgency</label>
+                                <div class="flex gap-2">
+                                    <button class="flex-1 py-2 bg-brand-green/10 text-brand-green border border-brand-green/20 rounded-lg font-bold text-sm">Low</button>
+                                    <button class="flex-1 py-2 bg-white text-slate-500 border border-slate-200 rounded-lg font-bold text-sm">Medium</button>
+                                    <button class="flex-1 py-2 bg-white text-slate-500 border border-slate-200 rounded-lg font-bold text-sm">High</button>
+                                </div>
+                            </div>
+                            <div><label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Description</label><textarea class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-brand-blue outline-none h-32 resize-none" placeholder="Describe the fault..."></textarea></div>
+                            <div class="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:bg-slate-100"><i data-lucide="camera" class="w-6 h-6 mb-1"></i><span class="text-xs font-bold">Add Photo</span></div>
+                            <button onclick="showToast('Issue Logged'); closeSubView('maintenance')" class="w-full bg-brand-blue text-white font-bold py-3 rounded-xl shadow-md">Submit Report</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 4: ACTIONS ================= -->
+        <div id="page-actions" class="page-section">
+             <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">Committee Actions</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50">
+                
+                <!-- Actions Menu -->
+                <div id="actions-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Task Management</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('actions', 'log')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue"><i data-lucide="clipboard-list" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Active Action Log</h4><p class="text-xs text-slate-500 mt-0.5">Track and update ongoing committee tasks.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-green/10 p-2.5 rounded-xl text-brand-green"><i data-lucide="plus-circle" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">New Action Item</h4><p class="text-xs text-slate-500 mt-0.5">Record a new task arising from a meeting.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Log View -->
+                <div id="actions-detail-log" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('actions')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-4 border-b border-slate-100 flex flex-wrap gap-4 bg-slate-50/50 items-center">
+                            <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-500 uppercase">Year</span><select class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-medium bg-white outline-none focus:border-brand-blue"><option>2025</option><option>2024</option></select></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead><tr class="bg-slate-50 border-b border-slate-200"><th class="p-4 text-xs font-bold text-slate-500 uppercase">Due Date</th><th class="p-4 text-xs font-bold text-slate-500 uppercase w-1/2">Action Item</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Owner</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Status</th><th class="p-4"></th></tr></thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr onclick="openActionModal('Liquor License Renewal', 'Thabo', 'In Progress')" class="hover:bg-slate-50 cursor-pointer transition-colors group">
+                                        <td class="p-4 text-sm font-bold text-brand-red">15 Oct</td><td class="p-4"><p class="font-semibold text-slate-800 group-hover:text-brand-blue">Finalize Liquor License Renewal</p></td><td class="p-4"><span class="text-sm">Thabo</span></td><td class="p-4"><span class="bg-brand-blue/10 text-brand-blue text-xs font-bold px-2 py-1 rounded">In Progress</span></td><td class="p-4 text-right"><i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 5: MEMBERS ================= -->
+        <div id="page-members" class="page-section">
+            <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">Member Management</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50 relative">
+                
+                <!-- MENU -->
+                <div id="member-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Directory Services</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden mb-8">
+                        <button onclick="openSubView('member', 'directory')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue"><i data-lucide="users" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Member Directory</h4><p class="text-xs text-slate-500 mt-0.5">Search and view active members.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('member', 'birthdays')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-purple-100 p-2.5 rounded-xl text-purple-700"><i data-lucide="cake" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Birthdays</h4><p class="text-xs text-slate-500 mt-0.5">Upcoming birthdays and notifications.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Administration</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('member', 'sync')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-slate-100 p-2.5 rounded-xl text-slate-600"><i data-lucide="refresh-cw" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Data Synchronization</h4><p class="text-xs text-slate-500 mt-0.5">Sync with Google Contacts & Gate.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Directory -->
+                <div id="member-detail-directory" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('member')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center"><i data-lucide="users" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i><h3 class="font-medium text-slate-900">Member Directory List</h3></div>
+                </div>
+
+                <!-- Birthdays -->
+                <div id="member-detail-birthdays" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('member')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between md:items-center gap-4 bg-slate-50/50">
+                            <div class="flex gap-2 items-center"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i><select class="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium bg-white"><option>October</option></select></div>
+                            <div class="flex gap-2"><button class="px-3 py-2 bg-brand-green text-white rounded-lg text-xs font-bold hover:bg-green-600 flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp Wishes</button></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left"><thead class="bg-white border-b border-slate-200"><tr><th class="p-4 text-xs font-bold text-slate-500 uppercase w-20 text-center">Date</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Member Name</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Age</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Type</th></tr></thead><tbody class="divide-y divide-slate-100"><tr class="hover:bg-slate-50"><td class="p-4 text-center"><div class="font-bold text-slate-800">05</div><div class="text-[10px] uppercase text-slate-400 font-bold">Oct</div></td><td class="p-4 font-bold text-slate-700">Sarah Jenkins</td><td class="p-4 text-sm font-bold text-brand-blue">34</td><td class="p-4"><span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Full Member</span></td></tr></tbody></table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sync -->
+                <div id="member-detail-sync" class="view-container p-6 lg:p-10">
+                    <button onclick="closeSubView('member')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-xl text-slate-800 mb-6">Data Synchronization</h3>
+                        <div class="flex flex-col gap-4">
+                            <button onclick="syncContacts()" id="syncBtn" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                                <div class="flex items-center gap-3"><div class="bg-blue-100 p-2 rounded-lg text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition-colors"><i data-lucide="refresh-cw" class="w-5 h-5"></i></div><div class="text-left"><p class="text-slate-800 font-bold">Sync Google Contacts</p><p class="text-xs text-slate-500">Update member details from primary source.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                            </button>
+                            <button onclick="showToast('Gate Synced')" class="bg-white border border-slate-200 text-slate-600 px-4 py-3 rounded-xl text-sm font-bold shadow-sm flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                                <div class="flex items-center gap-3"><div class="bg-slate-100 p-2 rounded-lg text-slate-600 group-hover:bg-slate-800 group-hover:text-white transition-colors"><i data-lucide="warehouse" class="w-5 h-5"></i></div><div class="text-left"><p class="text-slate-800 font-bold">Sync Gate Access</p><p class="text-xs text-slate-500">Push active member list to gate controller.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 6: SETTINGS (UPDATED WITH COLORS) ================= -->
+        <div id="page-settings" class="page-section">
+            <header class="h-20 glass-panel border-b border-white/50 flex items-center justify-between px-6 lg:px-10 shrink-0 z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 rounded-lg text-brand-blue hover:bg-brand-blue/5"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                    <h2 class="text-xl font-bold text-brand-blue">System Configuration</h2>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50/50 relative">
+                
+                <!-- MENU -->
+                <div id="settings-menu" class="view-container active p-6 lg:p-10 max-w-4xl mx-auto">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">General Configuration</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden mb-8">
+                        <button onclick="openSubView('settings', 'whatsapp')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-green/10 p-2.5 rounded-xl text-brand-green"><i data-lucide="smartphone" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">WhatsApp Integration</h4><p class="text-xs text-slate-500 mt-0.5">Manage bots, QR codes, and linked devices.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('settings', 'google')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue"><i data-lucide="database" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Google Data Sources</h4><p class="text-xs text-slate-500 mt-0.5">Map sheets for Roster, Actions, and Finances.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                        <button onclick="openSubView('settings', 'users')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-purple-100 p-2.5 rounded-xl text-purple-700"><i data-lucide="users" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">User Access Control</h4><p class="text-xs text-slate-500 mt-0.5">Manage roles, users, and permissions.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Look & Feel</h3>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        <button onclick="openSubView('settings', 'colors')" class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left">
+                            <div class="flex items-center gap-4"><div class="bg-brand-gold/10 p-2.5 rounded-xl text-brand-gold"><i data-lucide="palette" class="w-5 h-5"></i></div><div><h4 class="font-bold text-slate-800">Colour Schemes</h4><p class="text-xs text-slate-500 mt-0.5">View brand palette and usage guidelines.</p></div></div><i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEWS -->
+                
+                <!-- WhatsApp -->
+                <div id="settings-detail-whatsapp" class="view-container p-6 lg:p-10 max-w-4xl mx-auto h-full">
+                    <button onclick="closeSubView('settings')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Menu</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-xl text-slate-800 mb-6">WhatsApp Profiles</h3>
+                        <div class="flex gap-2 mb-6"><button class="flex-1 py-2 text-xs font-bold rounded-lg bg-brand-green/10 text-brand-green border border-brand-green/20">Admin Bot</button><button class="flex-1 py-2 text-xs font-bold rounded-lg bg-white text-slate-500 border border-slate-200">Finance Bot</button></div>
+                        <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-8 bg-slate-50">
+                            <i data-lucide="qr-code" class="w-24 h-24 text-slate-400 mb-4"></i>
+                            <p class="text-sm font-bold text-slate-700">Scan to Link</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google -->
+                <div id="settings-detail-google" class="view-container p-6 lg:p-10 max-w-4xl mx-auto h-full">
+                    <button onclick="closeSubView('settings')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Menu</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-xl text-slate-800 mb-6">Data Sources</h3>
+                        <div class="space-y-4">
+                            <div class="p-4 border border-slate-200 rounded-xl bg-slate-50"><span class="text-xs font-bold text-slate-600 uppercase">Action Log</span><div class="font-mono text-xs text-slate-500 mt-1">1BxiMvs0XRA5nSLd7...</div></div>
+                            <div class="p-4 border border-slate-200 rounded-xl bg-slate-50"><span class="text-xs font-bold text-slate-600 uppercase">Membership</span><div class="font-mono text-xs text-slate-500 mt-1">1BxiMvs0XRA5nSLd7...</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users & Permissions -->
+                <div id="settings-detail-users" class="view-container p-6 lg:p-10 max-w-4xl mx-auto h-full">
+                    <button onclick="closeSubView('settings')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Menu</button>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <!-- Tabs -->
+                        <div class="border-b border-slate-200 flex px-6">
+                            <button onclick="document.getElementById('view-users-list').classList.remove('hidden'); document.getElementById('view-permissions').classList.add('hidden');" class="py-4 mr-6 text-sm font-bold text-brand-blue border-b-2 border-brand-blue">Users</button>
+                            <button onclick="document.getElementById('view-users-list').classList.add('hidden'); document.getElementById('view-permissions').classList.remove('hidden');" class="py-4 text-sm font-bold text-slate-500 hover:text-brand-blue">Role Permissions</button>
+                        </div>
+                        <!-- List -->
+                        <div id="view-users-list">
+                            <div class="p-6 border-b border-slate-100 flex justify-between"><h3 class="font-bold text-xl text-slate-800">Registered Users</h3><button class="bg-brand-blue text-white px-3 py-1.5 rounded-lg text-xs font-bold">Add User</button></div>
+                            <table class="w-full text-left"><thead class="bg-slate-50 border-b border-slate-200"><tr><th class="p-4 text-xs">User</th><th class="p-4 text-xs">Role</th></tr></thead><tbody><tr><td class="p-4 font-bold text-sm">John Smith</td><td class="p-4 text-sm">Admin</td></tr></tbody></table>
+                        </div>
+                        <!-- Matrix -->
+                        <div id="view-permissions" class="hidden p-6">
+                            <h3 class="font-bold text-xl text-slate-800 mb-4">Permission Matrix</h3>
+                            <div class="overflow-x-auto"><table class="w-full text-left border-collapse border border-slate-200 rounded-lg"><thead><tr class="bg-slate-50"><th class="p-3 border border-slate-200 text-xs font-bold text-slate-500">Module</th><th class="p-3 border border-slate-200 text-xs font-bold text-slate-500 text-center">Admin</th><th class="p-3 border border-slate-200 text-xs font-bold text-slate-500 text-center">Treasurer</th><th class="p-3 border border-slate-200 text-xs font-bold text-slate-500 text-center">Member</th></tr></thead><tbody><tr><td class="p-3 border border-slate-200 text-sm font-bold text-slate-700">Financials</td><td class="p-3 border border-slate-200 text-center"><span class="text-brand-green text-xs font-bold">Full Access</span></td><td class="p-3 border border-slate-200 text-center"><span class="text-brand-green text-xs font-bold">Full Access</span></td><td class="p-3 border border-slate-200 text-center"><span class="text-blue-600 text-xs font-bold">Submit Only</span></td></tr></tbody></table></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLORS (UPDATED: UI GUIDE & DESCRIPTIONS) -->
+                <div id="settings-detail-colors" class="view-container p-6 lg:p-10 max-w-4xl mx-auto h-full">
+                    <button onclick="closeSubView('settings')" class="mb-6 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-blue"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Menu</button>
+                    
+                    <div class="space-y-8">
+                        
+                        <!-- 1. UI Application Guide (New) -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="font-bold text-xl text-slate-800 mb-6">UI Application Guide</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <!-- Cards & Containers -->
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Cards & Containers</p>
+                                    <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-2">
+                                        <p class="text-slate-800 font-bold text-sm">Surface White</p>
+                                        <p class="text-slate-500 text-xs">Used for all content cards and panels.</p>
+                                    </div>
+                                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                                        <p class="text-slate-800 font-bold text-sm">Canvas Grey</p>
+                                        <p class="text-slate-500 text-xs">Global app background.</p>
+                                    </div>
+                                </div>
+                                <!-- Buttons & States -->
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Interactive Elements</p>
+                                    <div class="flex flex-col gap-2">
+                                        <button class="bg-brand-blue text-white px-4 py-2 rounded-lg text-sm font-bold w-full text-left">Primary Action (Brand Blue)</button>
+                                        <button class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold w-full text-left">Secondary Action (White/Slate)</button>
+                                        <button class="bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-bold w-full text-left">Destructive Action (Brand Red)</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Detailed Theme Customizer (Merged with Descriptions) -->
+                        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                            <div class="flex justify-between items-center mb-6"><div><h3 class="font-bold text-xl text-slate-800">Theme Editor</h3><p class="text-sm text-slate-500">Edit codes to update global theme.</p></div><button class="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-300 rounded hover:bg-slate-50">Reset All</button></div>
+                            
+                            <div class="space-y-6">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Core Brand</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div><label class="text-xs font-bold text-slate-500 block mb-1">Primary Blue</label><div class="flex gap-2"><input type="color" value="#0B3173" class="w-10 h-10 rounded border p-0.5 bg-white"><input type="text" value="#0B3173" class="w-full text-xs border rounded px-2 font-mono text-slate-600"></div><p class="text-[10px] text-slate-400 mt-1">Headers, Main Nav</p></div>
+                                        <div><label class="text-xs font-bold text-slate-500 block mb-1">Accent Gold</label><div class="flex gap-2"><input type="color" value="#D4AF37" class="w-10 h-10 rounded border p-0.5 bg-white"><input type="text" value="#D4AF37" class="w-full text-xs border rounded px-2 font-mono text-slate-600"></div><p class="text-[10px] text-slate-400 mt-1">Highlights, Badges</p></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Functional Palette</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div><label class="text-xs font-bold text-slate-500 block mb-1">Success Green</label><div class="flex gap-2"><input type="color" value="#10B981" class="w-10 h-10 rounded border p-0.5 bg-white"><input type="text" value="#10B981" class="w-full text-xs border rounded px-2 font-mono text-slate-600"></div><p class="text-[10px] text-slate-400 mt-1">Completions, Safe Actions</p></div>
+                                        <div><label class="text-xs font-bold text-slate-500 block mb-1">Warning Orange</label><div class="flex gap-2"><input type="color" value="#EA580C" class="w-10 h-10 rounded border p-0.5 bg-white"><input type="text" value="#EA580C" class="w-full text-xs border rounded px-2 font-mono text-slate-600"></div><p class="text-[10px] text-slate-400 mt-1">Pending, Review Needed</p></div>
+                                        <div><label class="text-xs font-bold text-slate-500 block mb-1">Alert Red</label><div class="flex gap-2"><input type="color" value="#EF4444" class="w-10 h-10 rounded border p-0.5 bg-white"><input type="text" value="#EF4444" class="w-full text-xs border rounded px-2 font-mono text-slate-600"></div><p class="text-[10px] text-slate-400 mt-1">Errors, Delete Actions</p></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end gap-3 pt-6 border-t border-slate-200 mt-6">
+                                <button class="px-4 py-2 bg-brand-blue text-white rounded-lg font-bold text-xs shadow-sm hover:opacity-90">Save Configuration</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl transform translate-y-20 transition-transform duration-300 z-[70] flex items-center gap-3">
+        <div class="bg-brand-green rounded-full p-1"><i data-lucide="check" class="w-3 h-3 text-white"></i></div>
+        <div><p class="font-bold text-sm" id="toastMessage">Action Successful</p></div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="swapModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeSwapModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-4">Manage Shift</h3>
+            <button class="w-full bg-brand-blue text-white font-bold py-3 rounded-xl mb-3 shadow-md">Confirm Attendance</button>
+            <button class="w-full bg-white border-2 border-brand-red/20 text-brand-red font-bold py-3 rounded-xl hover:bg-brand-red/5 mb-3 flex items-center justify-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Request Swap</button>
+            <button onclick="closeSwapModal()" class="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl">Close</button>
+        </div>
+    </div>
+
+    <div id="actionModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeActionModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6">
+            <div class="flex justify-between items-start mb-4"><div><h3 class="text-lg font-bold text-slate-900" id="actionTitle">--</h3><p class="text-xs text-slate-500 mt-1">Assigned to: <span id="actionOwner" class="font-bold">--</span></p></div><button onclick="closeActionModal()"><i data-lucide="x" class="text-slate-400"></i></button></div>
+            <div class="flex gap-2 mb-4"><button class="flex-1 py-2 border rounded-lg text-xs font-bold">Pending</button><button class="flex-1 py-2 bg-brand-blue text-white rounded-lg text-xs font-bold">In Progress</button><button class="flex-1 py-2 border rounded-lg text-xs font-bold">Complete</button></div>
+            <textarea class="w-full p-3 border rounded-xl text-sm h-24 mb-4" placeholder="Add update..."></textarea>
+            <button onclick="closeActionModal(); showToast('Action Updated')" class="w-full bg-brand-blue text-white font-bold py-3 rounded-xl">Save</button>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function navigate(pageId) {
+            document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('bg-brand-blue/5', 'text-brand-blue', 'border', 'border-brand-blue/10', 'shadow-sm');
+                el.classList.add('text-slate-600', 'hover:bg-slate-50', 'hover:text-brand-blue');
+            });
+
+            const activeBtn = document.getElementById('nav-' + pageId);
+            if(activeBtn) {
+                activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-50', 'hover:text-brand-blue');
+                activeBtn.classList.add('bg-brand-blue/5', 'text-brand-blue', 'border', 'border-brand-blue/10', 'shadow-sm');
+            }
+            if(window.innerWidth < 1024) toggleSidebar();
+        }
+        
+        function toggleRosterMode(modeName) {
+            document.querySelectorAll('.roster-display-mode').forEach(el => el.classList.remove('active'));
+            document.getElementById('roster-mode-' + modeName).classList.add('active');
+            const btnCalendar = document.getElementById('btn-mode-calendar');
+            const btnList = document.getElementById('btn-mode-list');
+            btnCalendar.className = "p-1.5 rounded-md text-slate-500 hover:text-slate-700";
+            btnList.className = "p-1.5 rounded-md text-slate-500 hover:text-slate-700";
+            if (modeName === 'calendar') btnCalendar.className = "p-1.5 rounded-md bg-white text-brand-blue shadow-sm";
+            else btnList.className = "p-1.5 rounded-md bg-white text-brand-blue shadow-sm";
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        let isSidebarOpen = false;
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        function openSwapModal() { document.getElementById('swapModal').classList.remove('hidden'); }
+        function closeSwapModal() { document.getElementById('swapModal').classList.add('hidden'); }
+        function openActionModal(title, owner, status) {
+            document.getElementById('actionTitle').innerText = title;
+            document.getElementById('actionOwner').innerText = owner;
+            document.getElementById('actionModal').classList.remove('hidden');
+        }
+        function closeActionModal() { document.getElementById('actionModal').classList.add('hidden'); }
+
+        
+        function cycleClaimStatus(btn) {
+            const currentStatus = btn.getAttribute('data-status');
+            if (currentStatus === 'pending') {
+                btn.setAttribute('data-status', 'review');
+                btn.className = "status-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-brand-orange/20 text-brand-orange w-32 justify-center";
+                btn.innerHTML = "<span>Under Review</span>";
+            } else if (currentStatus === 'review') {
+                btn.setAttribute('data-status', 'processed');
+                btn.className = "status-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-brand-green/20 text-brand-green w-32 justify-center";
+                btn.innerHTML = "<span>Processed</span>";
+                showToast("Claim marked as processed");
+            } else {
+                btn.setAttribute('data-status', 'pending');
+                btn.className = "status-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-brand-red/10 text-brand-red w-32 justify-center";
+                btn.innerHTML = "<span>Pending</span>";
+            }
+        }
+
+        // Generic Master-Detail Navigation Logic
+        function openSubView(section, viewId) {
+            // Hide menu for this section
+            document.querySelector(`#${section}-menu`).classList.remove('active');
+            // Show specific view
+            document.querySelector(`#${section}-detail-${viewId}`).classList.add('active');
+        }
+
+        function closeSubView(section) {
+            // Hide all sub-views for this section
+            document.querySelectorAll(`[id^='${section}-detail-']`).forEach(el => el.classList.remove('active'));
+            // Show menu
+            document.querySelector(`#${section}-menu`).classList.add('active');
+        }
+
+        function handleMockSubmit(e) {
+            e.preventDefault();
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingOverlay').classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('loadingOverlay').classList.remove('flex');
+                document.getElementById('successOverlay').classList.remove('hidden');
+                document.getElementById('successOverlay').classList.add('flex');
+            }, 2000);
+        }
+        function resetForm() {
+            document.getElementById('receiptForm').reset();
+            document.getElementById('successOverlay').classList.add('hidden');
+            document.getElementById('successOverlay').classList.remove('flex');
+        }
+        function sendReminder(btn, name) {
+            btn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Sent`;
+            btn.classList.add('text-brand-green', 'border-brand-green/30', 'bg-brand-green/10');
+            showToast(`Reminder sent to ${name}`);
+            lucide.createIcons();
+        }
+        function syncContacts() { showToast("Synced with Google Contacts"); }
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = msg;
+            toast.classList.remove('translate-y-20');
+            setTimeout(() => toast.classList.add('translate-y-20'), 3000);
+        }
+        
+        document.getElementById('nav-roster').classList.remove('text-slate-600', 'hover:bg-slate-50', 'hover:text-brand-blue');
+        document.getElementById('nav-roster').classList.add('bg-brand-blue/5', 'text-brand-blue', 'border', 'border-brand-blue/10', 'shadow-sm');
+
+    </script>
+</body>
+</html>
